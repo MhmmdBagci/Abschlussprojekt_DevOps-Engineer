@@ -1,10 +1,38 @@
+- Erstellen Sie ein vollständiges Jenkinsfile mit folgenden Stages:
+  - Build
+    - Backend: mit Maven und aktivem Profil (dev oder prod)
+    - Frontend: mit npm (z. B. npm install && npm run build)
+  - Test
+    - Backend: automatisierte JUnit-Tests
+    - Frontend: falls vorhanden (z. B. ng test oder npm test)
+  - Docker Build: Erstellen der Docker-Images
+  - Docker Push: Push in die vom Dozenten bereitgestellte Container Registry
+  - Deploy Dev: Deployment in den Dev-Namespace des Kubernetes-Clusters
+  - Manual Approval: manuelle Bestätigung für das Prod-Deployment
+  - Deploy Prod: Deployment in den Prod-Namespace
+// Jenkinsfile
+
 pipeline {
     agent any
     stages {
         stage("Build") {
             steps {
                 echo "Building the application..."
+                sh `mvn clean package -Pdev` // oder -Pprod je nach Bedarf
+                sh "npm install && npm run build"
             }
+        }
+    }
+    post {
+        always {
+            echo 'Cleaning workspace'
+            sh 'rm -rf ./*'
+        }
+        success {
+            echo 'Pipeline erfolgreich abgeschlossen.'
+        }
+        failure {
+            echo 'Pipeline fehlgeschlagen.'
         }
     }
 }
