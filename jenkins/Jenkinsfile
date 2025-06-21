@@ -32,13 +32,6 @@ pipeline {
     REGISTRY_URL = "registry.example.com"
   }
 
-  tools {
-    // Jenkins soll sicherstellen, dass Maven und Node.js in der angegebenen Version installiert sind.
-    // Maven wird für den Bau des Java-Backends benötigt, Node.js für das JavaScript-Frontend.
-    maven 'Maven 3.6'
-    nodejs 'NodeJS 14'
-  }
-
   stages {
     // ======================
     // Schritt 1: Backend bauen (Java)
@@ -181,6 +174,10 @@ pipeline {
 
   // ====== Abschlussmeldung ======
   post {
+    always {
+            echo 'Cleaning workspace'
+            sh 'rm -rf ./*'
+        }
     success {
       // Wenn alles erfolgreich war, wird diese Nachricht im Jenkins-Protokoll angezeigt
       echo "✅ Pipeline abgeschlossen!"
