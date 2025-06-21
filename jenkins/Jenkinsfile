@@ -114,7 +114,7 @@ pipeline {
       steps {
         // Hier melden wir uns sicher bei der Container-Registry an.
         // Die Zugangsdaten (Benutzername + Passwort) werden aus Jenkins geladen – sie sind dort gespeichert.
-        withCredentials([usernamePassword(credentialsId: 'docker-credentials-id', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+        withCredentials([usernamePassword(credentialsId: 'dockerhub', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
           // Mit diesem Befehl melden wir uns bei der Registry an. Das Passwort wird direkt übergeben, ohne dass es angezeigt wird.
           sh "echo $DOCKER_PASS | docker login $REGISTRY_URL -u $DOCKER_USER --password-stdin"
 
