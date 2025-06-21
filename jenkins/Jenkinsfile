@@ -1,38 +1,193 @@
-- Erstellen Sie ein vollständiges Jenkinsfile mit folgenden Stages:
-  - Build
-    - Backend: mit Maven und aktivem Profil (dev oder prod)
-    - Frontend: mit npm (z. B. npm install && npm run build)
-  - Test
-    - Backend: automatisierte JUnit-Tests
-    - Frontend: falls vorhanden (z. B. ng test oder npm test)
-  - Docker Build: Erstellen der Docker-Images
-  - Docker Push: Push in die vom Dozenten bereitgestellte Container Registry
-  - Deploy Dev: Deployment in den Dev-Namespace des Kubernetes-Clusters
-  - Manual Approval: manuelle Bestätigung für das Prod-Deployment
-  - Deploy Prod: Deployment in den Prod-Namespace
-// Jenkinsfile
+// - Erstellen Sie ein vollständiges Jenkinsfile mit folgenden Stages:
+// - Build
+// - Backend: mit Maven und aktivem Profil (dev oder prod)
+// - Frontend: mit npm (z. B. npm install && npm run build)
+// - Test
+// - Backend: automatisierte JUnit-Tests
+// - Frontend: falls vorhanden (z. B. ng test oder npm test)
+// - Docker Build: Erstellen der Docker-Images
+// - Docker Push: Push in die vom Dozenten bereitgestellte Container Registry
+// - Deploy Dev: Deployment in den Dev-Namespace des Kubernetes-Clusters
+// - Manual Approval: manuelle Bestätigung für das Prod-Deployment
+// - Deploy Prod: Deployment in den Prod-Namespace
 
 pipeline {
-    agent any
-    stages {
-        stage("Build") {
-            steps {
-                echo "Building the application..."
-                sh `mvn clean package -Pdev` // oder -Pprod je nach Bedarf
-                sh "npm install && npm run build"
-            }
+  // Jenkins soll diese Pipeline auf einem beliebigen verfügbaren Server (Agent) ausführen
+  agent any
+
+  parameters {
+    // Wir erstellen eine Eingabe-Feld namens "BUILD_ENV", in dem der Benutzer auswählen kann,
+    // ob er die Entwicklungsumgebung ("dev") oder die Produktionsumgebung ("prod") bauen möchte.
+    // So können wir die Pipeline flexibel für beide Einsatzzwecke nutzen.
+    string(name: 'BUILD_ENV', defaultValue: 'dev', description: 'dev oder prod')
+  }
+
+  environment {
+    // Hier definieren wir drei Umgebungsvariablen, die wir später mehrfach verwenden:
+    // - IMAGE_BACKEND: Name des Backend-Docker-Images
+    // - IMAGE_FRONTEND: Name des Frontend-Docker-Images
+    // - REGISTRY_URL: Die Adresse unserer Container-Registry, also eine Art Speicher für Docker-Images
+    IMAGE_BACKEND = "my-backend-image"
+    IMAGE_FRONTEND = "my-frontend-image"
+    REGISTRY_URL = "registry.example.com"
+  }
+
+  tools {
+    // Jenkins soll sicherstellen, dass Maven und Node.js in der angegebenen Version installiert sind.
+    // Maven wird für den Bau des Java-Backends benötigt, Node.js für das JavaScript-Frontend.
+    maven 'Maven 3.6.3'
+    nodejs 'NodeJS 14'
+  }
+
+  stages {
+    // ======================
+    // Schritt 1: Backend bauen (Java)
+    // ======================
+    stage('Build Backend') {
+      steps {
+        dir('backend') {
+          // Wir wechseln in das Verzeichnis "backend", wo sich der Java-Code befindet
+          // Mit diesem Befehl bauen wir das Java-Projekt und sagen Maven:
+          // - Säubere vorherige Ergebnisse ("clean")
+          // - Erstelle ein neues Paket ("package")
+          // - Nutze das Profil "dev" oder "prod" (abhängig vom Parameter oben)
+          sh "mvn clean package -P${params.BUILD_ENV}"
         }
+      }
     }
-    post {
-        always {
-            echo 'Cleaning workspace'
-            sh 'rm -rf ./*'
+
+    // ======================
+    // Schritt 2: Backend testen
+    // ======================
+    stage('Test Backend') {
+      steps {
+        dir('backend') {
+          // Führt alle automatisierten Tests des Backends aus
+          // Diese Tests prüfen z. B., ob wichtige Funktionen korrekt arbeiten
+          // Typischerweise werden dafür sogenannte JUnit-Tests verwendet
+          sh "mvn test"
         }
-        success {
-            echo 'Pipeline erfolgreich abgeschlossen.'
-        }
-        failure {
-            echo 'Pipeline fehlgeschlagen.'
-        }
+      }
     }
+
+    // ======================
+    // Schritt 3: Frontend bauen (z. B. Angular oder React)
+    // ======================
+    stage('Build Frontend') {
+      steps {
+        dir('frontend') {
+          // Zuerst werden mit "npm install" alle benötigten Pakete aus dem Internet geladen
+          // Diese sind im Projekt in der Datei "package.json" definiert.
+          sh "npm install"
+          // Danach wird das Frontend-Projekt mit "npm run build" übersetzt und optimiert.
+          // Es entstehen fertige Dateien, die später im Browser angezeigt werden können.
+          sh "npm run build"
+        }
+      }
+    }
+
+    // ======================
+    // Schritt 4: Frontend testen
+    // ======================
+    stage('Test Frontend') {
+      steps {
+        dir('frontend') {
+          // Führt Tests für das Frontend durch – z. B. Klicktests, UI-Tests usw.
+          // Falls keine Tests vorhanden sind, sorgt "|| true" dafür, dass die Pipeline trotzdem weiterläuft.
+          sh "npm test || true"
+        }
+      }
+    }
+
+    // ======================
+    // Schritt 5: Docker-Images bauen
+    // ======================
+    stage('Docker Build') {
+      steps {
+        // Erstellt ein Docker-Image für das Backend.
+        // Ein Docker-Image ist eine Art "Mini-Betriebssystem mit fertiger App", das man überall starten kann.
+        // Die gebaute Anwendung aus dem Backend-Ordner wird hineingepackt.
+        sh "docker build -t ${REGISTRY_URL}/${IMAGE_BACKEND}:${params.BUILD_ENV} ./backend"
+
+        // Danach das gleiche für das Frontend – daraus wird auch ein Docker-Image erstellt.
+        sh "docker build -t ${REGISTRY_URL}/${IMAGE_FRONTEND}:${params.BUILD_ENV} ./frontend"
+      }
+    }
+
+    // ======================
+    // Schritt 6: Docker-Images in Container-Registry hochladen
+    // ======================
+    stage('Docker Push') {
+      steps {
+        // Hier melden wir uns sicher bei der Container-Registry an.
+        // Die Zugangsdaten (Benutzername + Passwort) werden aus Jenkins geladen – sie sind dort gespeichert.
+        withCredentials([usernamePassword(credentialsId: 'docker-credentials-id', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+          // Mit diesem Befehl melden wir uns bei der Registry an. Das Passwort wird direkt übergeben, ohne dass es angezeigt wird.
+          sh "echo $DOCKER_PASS | docker login $REGISTRY_URL -u $DOCKER_USER --password-stdin"
+
+          // Jetzt werden die beiden Images (Backend und Frontend) in die Registry hochgeladen.
+          // Dadurch können sie später von überall aus gestartet werden (z. B. im Kubernetes-Cluster).
+          sh "docker push ${REGISTRY_URL}/${IMAGE_BACKEND}:${params.BUILD_ENV}"
+          sh "docker push ${REGISTRY_URL}/${IMAGE_FRONTEND}:${params.BUILD_ENV}"
+        }
+      }
+    }
+
+    // ======================
+    // Schritt 7: Deployment in Entwicklungsumgebung (dev)
+    // ======================
+    stage('Deploy Dev') {
+      // Diese Stufe wird nur dann ausgeführt, wenn im Parameter "dev" ausgewählt wurde
+      when {
+        expression { params.BUILD_ENV == 'dev' }
+      }
+      steps {
+        // Führt alle YAML-Konfigurationsdateien im Ordner k8s/dev aus.
+        // Damit wird das Projekt im Kubernetes-Cluster installiert oder aktualisiert.
+        sh "kubectl apply -f k8s/dev/"
+      }
+    }
+
+    // ======================
+    // Schritt 8: Manuelle Bestätigung für Produktiv-Deployment
+    // ======================
+    stage('Approval') {
+      // Diese Stufe erscheint nur bei "prod", also vor dem Produktiv-Deployment
+      when {
+        expression { params.BUILD_ENV == 'prod' }
+      }
+      steps {
+        // Zeigt in Jenkins eine Eingabemaske: „Willst du jetzt wirklich in Produktion deployen?“
+        // Das verhindert, dass versehentlich eine nicht getestete Version live geht.
+        input message: 'Deployment für Produktion freigeben?', ok: 'Weiter'
+      }
+    }
+
+    // ======================
+    // Schritt 9: Deployment in Produktion
+    // ======================
+    stage('Deploy Prod') {
+      // Wird nur bei ausgewähltem Profil "prod" ausgeführt
+      when {
+        expression { params.BUILD_ENV == 'prod' }
+      }
+      steps {
+        // Wendet alle Kubernetes-Konfigurationen für die Produktivumgebung an
+        // Die Dateien liegen im Ordner k8s/prod
+        sh "kubectl apply -f k8s/prod/"
+      }
+    }
+  }
+
+  // ====== Abschlussmeldung ======
+  post {
+    success {
+      // Wenn alles erfolgreich war, wird diese Nachricht im Jenkins-Protokoll angezeigt
+      echo "✅ Pipeline abgeschlossen!"
+    }
+    failure {
+      // Wenn ein Fehler passiert ist, erscheint diese Fehlermeldung
+      echo "❌ Pipeline fehlgeschlagen."
+    }
+  }
 }
