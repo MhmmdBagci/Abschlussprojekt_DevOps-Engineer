@@ -1,4 +1,3 @@
-# Backend Deployment
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -13,17 +12,17 @@ spec:
     metadata:
       labels:
         app: backend
-    spec:
-      containers:
-        - name: backend
-          image: registry.example.com/my-backend-image:dev
-          ports:
-            - containerPort: 8081
-          env:
-            - name: SPRING_PROFILES_ACTIVE
-              value: dev
+spec:
+  containers:
+    - name: backend
+      image: registrykurs1.azurecr.io/my-backend-image:dev
+      ports:
+        - containerPort: 8082
+      env:
+        - name: SPRING_PROFILES_ACTIVE
+          value: dev
+
 ---
-# Backend Service
 apiVersion: v1
 kind: Service
 metadata:
@@ -37,7 +36,6 @@ spec:
       port: 80
       targetPort: 8081
 ---
-# Frontend Deployment
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -55,11 +53,10 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: registry.example.com/my-frontend-image:dev
+          image: registrykurs1.azurecr.io/my-frontend-image:dev
           ports:
             - containerPort: 80
 ---
-# Frontend Service (öffentlich erreichbar)
 apiVersion: v1
 kind: Service
 metadata:
@@ -73,5 +70,3 @@ spec:
       port: 80
       targetPort: 80
   type: LoadBalancer
-
-#kubectl apply -f k8s/dev.yaml

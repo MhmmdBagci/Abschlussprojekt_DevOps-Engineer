@@ -13,15 +13,16 @@ spec:
     metadata:
       labels:
         app: backend
-    spec:
-      containers:
-        - name: backend
-          image: registry.example.com/my-backend-image:prod
-          ports:
-            - containerPort: 8082
-          env:
-            - name: SPRING_PROFILES_ACTIVE
-              value: prod
+spec:
+  containers:
+    - name: backend
+      image: registrykurs1.azurecr.io/my-backend-image:prod
+      ports:
+        - containerPort: 8082
+      env:
+        - name: SPRING_PROFILES_ACTIVE
+          value: prod
+
 ---
 # Backend Service
 apiVersion: v1
@@ -74,5 +75,4 @@ spec:
       targetPort: 80
   type: LoadBalancer
 
-#kubectl apply -f k8s/prod.yaml
 
