@@ -150,7 +150,7 @@ pipeline {
   // =====================
   post {
     always {
-      cleanWs()
+      sh 'rm -rf ./*'
     }
     success {
       echo "✅ Jenkins-Pipeline erfolgreich abgeschlossen!"
