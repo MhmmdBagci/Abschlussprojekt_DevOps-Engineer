@@ -107,8 +107,9 @@ pipeline {
         expression { params.BUILD_ENV == 'dev' }
       }
       steps {
-        withCredentials([file(credentialsId: 'kubeconfig-dev', variable: 'KUBECONFIG')]) {
-          sh "kubectl apply -f kubernetes/k8s_dev.yaml"
+        catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+          withCredentials([file(credentialsId: 'kubeconfig-dev', variable: 'KUBECONFIG')]) {
+            sh "kubectl apply -f kubernetes/k8s_dev.yaml"
         }
       }
     }
@@ -133,8 +134,9 @@ pipeline {
         expression { params.BUILD_ENV == 'prod' }
       }
       steps {
-        withCredentials([file(credentialsId: 'kubeconfig-prod', variable: 'KUBECONFIG')]) {
-          sh "kubectl apply -f kubernetes/k8s_prod.yaml"
+        catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+          withCredentials([file(credentialsId: 'kubeconfig-prod', variable: 'KUBECONFIG')]) {
+            sh "kubectl apply -f kubernetes/k8s_prod.yaml"
         }
       }
     }
