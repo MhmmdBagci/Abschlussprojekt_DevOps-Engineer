@@ -116,19 +116,7 @@ pipeline {
     }
 
     // =====================
-    // 8. Freigabe Prod
-    // =====================
-    stage('Approval') {
-      when {
-        expression { params.BUILD_ENV == 'prod' }
-      }
-      steps {
-        input message: 'Willst du wirklich in Produktion deployen?', ok: 'Ja, weiter'
-      }
-    }
-
-    // =====================
-    // 9. Deployment Prod
+    // 8. Deployment Prod
     // =====================
     stage('Deploy Prod') {
       when {
