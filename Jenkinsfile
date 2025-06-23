@@ -110,6 +110,7 @@ pipeline {
         catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
           withCredentials([file(credentialsId: 'kubeconfig-dev', variable: 'KUBECONFIG')]) {
             sh "kubectl apply -f kubernetes/k8s_dev.yaml"
+          }
         }
       }
     }
@@ -137,10 +138,12 @@ pipeline {
         catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
           withCredentials([file(credentialsId: 'kubeconfig-prod', variable: 'KUBECONFIG')]) {
             sh "kubectl apply -f kubernetes/k8s_prod.yaml"
+          }
         }
       }
     }
-  }
+
+  } // ENDE stages
 
   // =====================
   // Aufräumen & Status
@@ -156,4 +159,4 @@ pipeline {
       echo "❌ Fehler in der Jenkins-Pipeline aufgetreten."
     }
   }
-}
+} // ENDE pipeline
