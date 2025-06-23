@@ -31,13 +31,39 @@ pipeline {
 
   stages {
 
+    // ================================
+    // 0. Kubernetes Setup für dev (Namespace + RBAC)
+    // ================================
+    stage('K8s Setup (Namespace & RBAC)') {
+      when {
+        expression { params.BUILD_ENV == 'dev' }
+      }
+      steps {
+        withCredentials([file(credentialsId: 'kubeconfig-dev', variable: 'KUBECONFIG_FILE')]) {
+          withEnv(["KUBECONFIG=${KUBECONFIG_FILE}"]) {
+            // Namespace prüfen & anlegen + RBAC anwenden
+            sh '''
+              if ! kubectl get namespace dev >/dev/null 2>&1; then
+                echo "[✔] Namespace 'dev' wird erstellt..."
+                kubectl create namespace dev
+              else
+                echo "[ℹ] Namespace 'dev' existiert bereits."
+              fi
+
+              echo "[✔] RBAC-Konfiguration wird angewendet..."
+              kubectl apply -f kubernetes/rbac_dev.yaml
+            '''
+          }
+        }
+      }
+    }
+
     // =====================
     // 1. Backend Build (Java)
     // =====================
     stage('Build Backend') {
       steps {
         dir('backend') {
-          // Erst bereinigen, dann bauen mit aktivem Profil (dev/prod)
           sh "mvn clean package -P${params.BUILD_ENV}"
         }
       }
@@ -49,7 +75,6 @@ pipeline {
     stage('Test Backend') {
       steps {
         dir('backend') {
-          // Führt alle JUnit-Tests im Backend durch
           sh "mvn test"
         }
       }
@@ -61,112 +86,92 @@ pipeline {
     stage('Build Frontend') {
       steps {
         dir('frontend') {
-          // Installiert alle Abhängigkeiten aus package.json
           sh "npm install"
-          
-          // Baut das Frontend (z. B. React, Vue oder Angular)
           sh "npm run build"
         }
       }
     }
 
     // =====================
-    // 4. Frontend Tests (optional)
+    // 4. Frontend Tests
     // =====================
     stage('Test Frontend') {
       steps {
         dir('frontend') {
-          // Führt Tests durch (falls vorhanden). 
-          // Mit "|| true", damit kein Abbruch bei fehlenden Tests.
           sh "npm test || true"
         }
       }
     }
 
     // =====================
-    // 5. Docker Images bauen
+    // 5. Docker Build
     // =====================
     stage('Docker Build') {
       steps {
-        // Docker-Image für das Backend bauen
         sh "docker build -t ${REGISTRY_URL}/${IMAGE_BACKEND}:${params.BUILD_ENV} ./backend"
-
-        // Docker-Image für das Frontend bauen
         sh "docker build -t ${REGISTRY_URL}/${IMAGE_FRONTEND}:${params.BUILD_ENV} ./frontend"
       }
     }
 
     // =====================
-    // 6. Docker Images pushen (Azure Container Registry)
+    // 6. Docker Push
     // =====================
     stage('Docker Push') {
       steps {
-        // Holt sichere Zugangsdaten (Benutzer & Passwort) aus Jenkins Credential Store
         withCredentials([usernamePassword(credentialsId: 'azure-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-          // Login in Azure Container Registry
           sh "echo $DOCKER_PASS | docker login $REGISTRY_URL -u $DOCKER_USER --password-stdin"
-
-          // Push Backend Image
           sh "docker push ${REGISTRY_URL}/${IMAGE_BACKEND}:${params.BUILD_ENV}"
-
-          // Push Frontend Image
           sh "docker push ${REGISTRY_URL}/${IMAGE_FRONTEND}:${params.BUILD_ENV}"
         }
       }
     }
 
     // =====================
-    // 7. Deployment in Dev (automatisch)
+    // 7. Deployment Dev
     // =====================
     stage('Deploy Dev') {
       when {
-        // Nur bei dev-Umgebung ausführen
         expression { params.BUILD_ENV == 'dev' }
       }
       steps {
         withCredentials([file(credentialsId: 'kubeconfig-dev', variable: 'KUBECONFIG')]) {
           sh "kubectl apply -f kubernetes/k8s_dev.yaml"
         }
-
       }
     }
 
     // =====================
-    // 8. Manuelle Bestätigung für Prod
+    // 8. Freigabe Prod
     // =====================
     stage('Approval') {
       when {
-        // Nur bei prod-Umgebung anzeigen
         expression { params.BUILD_ENV == 'prod' }
       }
       steps {
-        // Manuelle Freigabe für das Live-Deployment
         input message: 'Willst du wirklich in Produktion deployen?', ok: 'Ja, weiter'
       }
     }
 
     // =====================
-    // 9. Deployment in Prod (nach Freigabe)
+    // 9. Deployment Prod
     // =====================
     stage('Deploy Prod') {
       when {
-        // Nur bei prod-Umgebung ausführen
         expression { params.BUILD_ENV == 'prod' }
       }
       steps {
         withCredentials([file(credentialsId: 'kubeconfig-prod', variable: 'KUBECONFIG')]) {
-         sh "kubectl apply -f kubernetes/k8s_prod.yaml"
+          sh "kubectl apply -f kubernetes/k8s_prod.yaml"
         }
       }
     }
   }
 
   // =====================
-  // Nach dem Build – Aufräumen & Statusmeldung
+  // Aufräumen & Status
   // =====================
   post {
     always {
-      // Workspace löschen nach jedem Durchlauf (auch bei Fehlern)
       cleanWs()
     }
     success {
