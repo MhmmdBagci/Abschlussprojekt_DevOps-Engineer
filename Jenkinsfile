@@ -31,33 +31,6 @@ pipeline {
 
   stages {
 
-    // ================================
-    // 0. Kubernetes Setup für dev (Namespace + RBAC)
-    // ================================
-    stage('K8s Setup (Namespace & RBAC)') {
-      when {
-        expression { params.BUILD_ENV == 'dev' }
-      }
-      steps {
-        withCredentials([file(credentialsId: 'kubeconfig-dev', variable: 'KUBECONFIG_FILE')]) {
-          withEnv(["KUBECONFIG=${KUBECONFIG_FILE}"]) {
-            // Namespace prüfen & anlegen + RBAC anwenden
-            sh '''
-              if ! kubectl get namespace dev >/dev/null 2>&1; then
-                echo "[✔] Namespace 'dev' wird erstellt..."
-                kubectl create namespace dev
-              else
-                echo "[ℹ] Namespace 'dev' existiert bereits."
-              fi
-
-              echo "[✔] RBAC-Konfiguration wird angewendet..."
-              kubectl apply -f kubernetes/rbac_dev.yaml
-            '''
-          }
-        }
-      }
-    }
-
     // =====================
     // 1. Backend Build (Java)
     // =====================
