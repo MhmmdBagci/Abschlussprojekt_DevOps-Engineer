@@ -124,8 +124,10 @@ pipeline {
         expression { params.BUILD_ENV == 'dev' }
       }
       steps {
-        // Deployment der YAML-Dateien in Kubernetes Dev-Namespace
-        sh "kubectl apply -f kubernetes/k8s_dev.yaml"
+        withCredentials([file(credentialsId: 'kubeconfig-dev', variable: 'KUBECONFIG')]) {
+          sh "kubectl apply -f kubernetes/k8s_dev.yaml"
+        }
+
       }
     }
 
@@ -152,8 +154,9 @@ pipeline {
         expression { params.BUILD_ENV == 'prod' }
       }
       steps {
-        // Deployment der YAML-Dateien in Kubernetes Prod-Namespace
-        sh "kubectl apply -f kubernetes/k8s_prod.yaml"
+        withCredentials([file(credentialsId: 'kubeconfig-prod', variable: 'KUBECONFIG')]) {
+         sh "kubectl apply -f kubernetes/k8s_prod.yaml"
+        }
       }
     }
   }
