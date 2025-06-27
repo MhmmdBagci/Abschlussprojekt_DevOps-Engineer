@@ -52,6 +52,4 @@ Gezeigt werden:
 
 ---
 
-**Autor:** 
-Muhammed Bagci
-
+**Autor:** Muhammed Bagci
